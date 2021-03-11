@@ -16,7 +16,7 @@ if (normalizedPath === "/domains") {
             a.title = `DIH domain ${domain}`;
             const p = document.createElement("p");
             p.appendChild(a);
-            p.className = "text-3xl";
+            p.className = "text-3xl break-words";
             domainContainer.appendChild(p);
         }
     };
