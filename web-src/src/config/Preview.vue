@@ -15,8 +15,10 @@
           <p v-if="showLink || embed || spoilerGlitch"><a href="#" class="discord-link" title="Example Link">{{normalLink}}</a></p> <!-- Link -->
 
           <div v-if="embed" class="border-l-4 p-2 bg-discord-embed-bg" :style="{borderColor: embedDisplayColor}">
-            <p class="text-xl"><a href="#" class="discord-link" title="Example Link">{{embedText || config.name}}</a></p> <!-- Embed Title -->
-            <p class="text-lg">Uploaded at 12:00 AM {{embedDate}}</p> <!-- Embed Description -->
+            <p v-if="embedHeader" class="text-md discord-muted">{{replaceDate(embedHeader)}}</p>
+            <p v-if="embedAuthor" class="text-lg font-bold">{{replaceDate(embedAuthor)}}</p>
+            <p class="text-xl"><a href="#" class="discord-link" title="Example Link">{{replaceDate(embedText) || config.name}}</a></p> <!-- Embed Title -->
+            <p class="text-lg">{{ replaceDate(embedDescription || "Uploaded at [UPLOAD_TIME]") }}</p> <!-- Embed Description -->
             <div class="h-32"> <!-- Embed Image -->
               <img :src="faviconURL" alt="Example Image">
             </div>
@@ -58,14 +60,21 @@ export default {
     "embedColor",
     "embedText",
     "embedMDY",
+    "embedDescription",
+    "embedAuthor",
+    "embedHeader",
+
     "showLink",
     "compatSLoD",
+
     "spoilerGlitch",
     "spoilerShowFilename",
+
     "domains",
+    "nameLength",
+
     "encryption",
-    "encKey",
-    "nameLength"
+    "encKey"
   ],
 
   computed: {
@@ -85,6 +94,12 @@ export default {
 
     embedDate() {
       return this.embedMDY ? "1/13/2000" : "13/1/2000";
+    }
+  },
+
+  methods: {
+    replaceDate(s) {
+      return s.replace(/\[UPLOAD_TIME\]/g, `12:00 AM ${this.embedDate}`);
     }
   }
 };

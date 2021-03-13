@@ -167,18 +167,32 @@ app.post("/upload", (req, res, next) => {
   const randomChoices = (req.query.random || "").split(",");
   const randomChoice = randomChoices[~~(randomChoices.length * Math.random())];
   let embed;
+
   if (req.query.embed === "yes") {
     if (!req.file.mimetype.startsWith("image/")) return res.status(400).json({success: false, error: "Cannot embed a non-image upload!"});
     embed = {
       color: 0xFFFFFF,
       text: config.uploading.name
     };
+
+    const timeFormat = req.query.embedMDY === "yes" ? "h:mm A M/D/y" : "h:mm A D/M/y";
+
+    if (req.query.embedTimezone) {
+      const offset = parseInt(req.query.embedTimezone);
+      if (!Number.isInteger(offset) || offset < -23 || offset > 23) return res.status(400).json({
+        success: false,
+        error: "Invalid timezone offset!"
+      });
+      embed.uploadedAt = moment().add(offset, "hours").format(timeFormat);
+    } else embed.uploadedAt = moment().format(timeFormat);
+
     if (req.query.embedText) {
-      if (req.query.embedText.length > 512) return res.status(400).json({success: false, message: "Embed text too long!"});
-      embed.text = req.query.embedText;
+      if (req.query.embedText.length > 480) return res.status(400).json({success: false, error: "Embed text too long!"});
+      embed.text = req.query.embedText.replace(/\[UPLOAD_TIME\]/g, embed.uploadedAt);
     }
+
     if (req.query.embedColor === "RANDOM") embed.color = ~~(Math.random() * 0x1000000);
-    else if (/^\d+$/.test(req.query.embedColor)) {
+    else if (req.query.embedColor && req.query.embedColor.match(/^\d+$/)) {
       const num = ~~req.query.embedColor;
       if (num < 0 || num > 0xFFFFFF) return res.status(400).json({success: false, error: "Invalid color!"});
       embed.color = num;
@@ -190,13 +204,21 @@ app.post("/upload", (req, res, next) => {
         embed.color = num;
       }
     }
-    const timeFormat = req.query.embedMDY === "yes" ? "h:mm A M/D/y" : "h:mm A D/M/y";
-    if (req.query.embedTimezone) {
-      const offset = parseInt(req.query.embedTimezone);
-      if (!Number.isInteger(offset) || offset < -23 || offset > 23) return res.status(400).json({success: false, error: "Invalid timezone offset!"});
-      embed.uploadedAt = moment().add(offset, "hours").format(timeFormat);
-    } else embed.uploadedAt = moment().format(timeFormat);
+
+    if (req.query.embedDescription) {
+      if (req.query.embedDescription.length > 480) return res.status(400).json({success: false, error: "Embed description too long!"});
+      embed.description = req.query.embedDescription.replace(/\[UPLOAD_TIME\]/g, embed.uploadedAt);
+    }
+    if (req.query.embedHeader) {
+      if (req.query.embedHeader.length > 480) return res.status(400).json({success: false, error: "Embed header too long!"});
+      embed.header = req.query.embedHeader.replace(/\[UPLOAD_TIME\]/g, embed.uploadedAt);
+    }
+    if (req.query.embedAuthor) {
+      if (req.query.embedAuthor.length > 480) return res.status(400).json({success: false, error: "Embed author too long!"});
+      embed.author = req.query.embedAuthor.replace(/\[UPLOAD_TIME\]/g, embed.uploadedAt);
+    }
   }
+
   let expiry;
   if (req.query.expire === "yes") {
     expiry = {};
@@ -344,11 +366,12 @@ app.get(["/:encKey/:name", "/raw/:encKey/:name"], async (req, res, next) => {
       return res.type("text/html").send(`<!DOCTYPE html>
 <html lang="en" prefix="og: http://ogp.me/ns#">
 <head>
+<link rel="alternate" type="application/json+oembed" href="https://${escapeHTML(req.get("Host"))}/oembed?name=${req.params.name}" title="OEmbed">
 <meta property="og:title" content="${escapeHTML(embed.text || config.name)}">
 <meta property="theme-color" content="#${("000000" + embed.color.toString(16).toUpperCase()).slice(-6)}">
 <meta property="og:image" content="https://${escapeHTML(req.get("Host"))}/raw/${escapeHTML(encodeURIComponent(req.params.encKey))}/${escapeHTML(encodeURIComponent(req.params.name))}">
 <meta property="twitter:card" content="summary_large_image">
-<meta property="og:description" content="Uploaded at ${embed.uploadedAt}">
+<meta property="og:description" content="${escapeHTML(embed.description) || `Uploaded at ${embed.uploadedAt}`}">
 </head>
 <body>
 <script>location.pathname = "/raw" + location.pathname;</script>
@@ -410,11 +433,12 @@ app.get(["/:name", "/raw/:name"], async (req, res, next) => {
       return res.type("text/html").send(`<!DOCTYPE html>
 <html prefix="og: http://ogp.me/ns#">
 <head>
+<link rel="alternate" type="application/json+oembed" href="https://${escapeHTML(req.get("Host"))}/oembed?name=${req.params.name}" title="OEmbed">
 <meta property="og:title" content="${escapeHTML(embed.text || config.name)}">
 <meta property="theme-color" content="#${("000000" + embed.color.toString(16).toUpperCase()).slice(-6)}">
 <meta property="og:image" content="https://${escapeHTML(req.get("Host"))}/raw/${req.params.name}">
 <meta property="twitter:card" content="summary_large_image">
-<meta property="og:description" content="Uploaded at ${embed.uploadedAt}">
+<meta property="og:description" content="${escapeHTML(embed.description) || `Uploaded at ${embed.uploadedAt}`}">
 </head>
 <body>
 <script>location.pathname = "/raw" + location.pathname;</script>
@@ -461,6 +485,20 @@ app.get(["/:name", "/raw/:name"], async (req, res, next) => {
     console.error(e);
     return res.status(500).json({success: false, error: "An error occurred."});
   }
+});
+
+app.get("/oembed", async (req, res) => {
+  if (!req.query.name || !embedData.has(req.query.name)) return res.status(404).json({success: false, error: "File not found"});
+  const embed = embedData.get(req.query.name);
+
+  let json = {
+    type: "link",
+    version: "1.0"
+  };
+  if (embed.header) json.provider_name = embed.header;
+  if (embed.author) json.author_name = embed.author;
+
+  res.json(json);
 });
 
 app.get("/:name", (req, res, next) => {

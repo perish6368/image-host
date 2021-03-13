@@ -47,6 +47,18 @@
     </p>
 
     <p v-if="embed" class="my-4 input-holder">
+      <input type="text" placeholder="Embed Description" v-model="embedDescription" @keydown="embedTextKeydown" class="input">
+    </p>
+
+    <p v-if="embed" class="my-4 input-holder">
+      <input type="text" placeholder="Embed Author" v-model="embedAuthor" @keydown="embedTextKeydown" class="input">
+    </p>
+
+    <p v-if="embed" class="my-4 input-holder">
+      <input type="text" placeholder="Embed Header" v-model="embedHeader" @keydown="embedTextKeydown" class="input">
+    </p>
+
+    <p v-if="embed" class="my-4 input-holder">
       <input type="text" placeholder="Timezone" v-model="embedTimezone" @keydown="embedTimezoneKeydown" class="input">
     </p>
 
@@ -138,23 +150,34 @@ export default {
     }],
     encryption: null,
     encKey: "",
+
     nameLength: "",
+
     pendingDomainUpdate: false,
     nameLengthBad: false,
+
     embed: false,
     embedColor: "#000000",
     embedText: "",
+    embedDescription: "",
+    embedAuthor: "",
+    embedHeader: "",
     embedMDY: false,
+    embedTimezone: "",
+
     expire: false,
     expireUses: "",
     expireAfter: "",
+
     showLink: false,
     compatSLoD: false,
-    embedTimezone: "",
+
     allDomainsNotClicked: true,
     enableExpire: config.enableExpire,
+
     spoilerGlitch: false,
     spoilerShowFilename: false,
+
     allDomainsData: []
   }),
 
@@ -282,6 +305,10 @@ export default {
         obj.Parameters.embed = "yes";
         obj.Parameters.embedColor = this.embedColor;
         if (this.embedText) obj.Parameters.embedText = this.embedText;
+        if (this.embedDescription) obj.Parameters.embedDescription = this.embedDescription;
+        if (this.embedAuthor) obj.Parameters.embedAuthor = this.embedAuthor;
+        if (this.embedHeader) obj.Parameters.embedHeader = this.embedHeader;
+
         if (this.embedTimezone) obj.Parameters.embedTimezone = this.embedTimezone;
         if (this.embedMDY) obj.Parameters.embedMDY = "yes";
       }
