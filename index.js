@@ -371,7 +371,7 @@ app.get(["/:encKey/:name", "/raw/:encKey/:name"], async (req, res, next) => {
 <meta property="theme-color" content="#${("000000" + embed.color.toString(16).toUpperCase()).slice(-6)}">
 <meta property="og:image" content="https://${escapeHTML(req.get("Host"))}/raw/${escapeHTML(encodeURIComponent(req.params.encKey))}/${escapeHTML(encodeURIComponent(req.params.name))}">
 <meta property="twitter:card" content="summary_large_image">
-<meta property="og:description" content="${escapeHTML(embed.description) || `Uploaded at ${embed.uploadedAt}`}">
+<meta property="og:description" content="${embed.description ? escapeHTML(embed.description) : `Uploaded at ${embed.uploadedAt}`}">
 </head>
 <body>
 <script>location.pathname = "/raw" + location.pathname;</script>
@@ -438,7 +438,7 @@ app.get(["/:name", "/raw/:name"], async (req, res, next) => {
 <meta property="theme-color" content="#${("000000" + embed.color.toString(16).toUpperCase()).slice(-6)}">
 <meta property="og:image" content="https://${escapeHTML(req.get("Host"))}/raw/${req.params.name}">
 <meta property="twitter:card" content="summary_large_image">
-<meta property="og:description" content="${escapeHTML(embed.description) || `Uploaded at ${embed.uploadedAt}`}">
+<meta property="og:description" content="${embed.description ? escapeHTML(embed.description) : `Uploaded at ${embed.uploadedAt}`}">
 </head>
 <body>
 <script>location.pathname = "/raw" + location.pathname;</script>
