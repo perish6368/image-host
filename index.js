@@ -169,10 +169,11 @@ app.post("/upload", (req, res, next) => {
   let embed;
 
   if (req.query.embed === "yes") {
-    if (!req.file.mimetype.startsWith("image/")) return res.status(400).json({success: false, error: "Cannot embed a non-image upload!"});
+    if (!["image/", "video/"].find(pref => req.file.mimetype.startsWith(pref))) return res.status(400).json({success: false, error: "Cannot embed a non-visual upload!"});
     embed = {
       color: 0xFFFFFF,
-      text: config.uploading.name
+      text: config.uploading.name,
+      video: req.file.mimetype.startsWith("video/")
     };
 
     const timeFormat = req.query.embedMDY === "yes" ? "h:mm A M/D/y" : "h:mm A D/M/y";
@@ -366,11 +367,11 @@ app.get(["/:encKey/:name", "/raw/:encKey/:name"], async (req, res, next) => {
       return res.type("text/html").send(`<!DOCTYPE html>
 <html lang="en" prefix="og: http://ogp.me/ns#">
 <head>
-<link rel="alternate" type="application/json+oembed" href="https://${escapeHTML(req.get("Host"))}/oembed?name=${req.params.name}" title="OEmbed">
+<link rel="alternate" type="application/json+oembed" href="https://${escapeHTML(req.get("Host"))}/oembed?name=${escapeHTML(encodeURIComponent(req.params.name))}" title="OEmbed">
 <meta property="og:title" content="${escapeHTML(embed.text || config.name)}">
 <meta property="theme-color" content="#${("000000" + embed.color.toString(16).toUpperCase()).slice(-6)}">
-<meta property="og:image" content="https://${escapeHTML(req.get("Host"))}/raw/${escapeHTML(encodeURIComponent(req.params.encKey))}/${escapeHTML(encodeURIComponent(req.params.name))}">
-<meta property="twitter:card" content="summary_large_image">
+<meta property="${embed.video ? "twitter:player" : "og:image"}" content="https://${escapeHTML(req.get("Host"))}/raw/${escapeHTML(encodeURIComponent(req.params.encKey))}/${escapeHTML(encodeURIComponent(req.params.name))}">
+<meta name="twitter:card" content="${embed.video ? "player" : "summary_large_image"}">
 <meta property="og:description" content="${embed.description ? escapeHTML(embed.description) : `Uploaded at ${embed.uploadedAt}`}">
 </head>
 <body>
@@ -433,11 +434,11 @@ app.get(["/:name", "/raw/:name"], async (req, res, next) => {
       return res.type("text/html").send(`<!DOCTYPE html>
 <html prefix="og: http://ogp.me/ns#">
 <head>
-<link rel="alternate" type="application/json+oembed" href="https://${escapeHTML(req.get("Host"))}/oembed?name=${req.params.name}" title="OEmbed">
+<link rel="alternate" type="application/json+oembed" href="https://${escapeHTML(req.get("Host"))}/oembed?name=${escapeHTML(encodeURIComponent(req.params.name))}" title="OEmbed">
 <meta property="og:title" content="${escapeHTML(embed.text || config.name)}">
 <meta property="theme-color" content="#${("000000" + embed.color.toString(16).toUpperCase()).slice(-6)}">
-<meta property="og:image" content="https://${escapeHTML(req.get("Host"))}/raw/${req.params.name}">
-<meta property="twitter:card" content="summary_large_image">
+<meta property="${embed.video ? "twitter:player" : "og:image"}" content="https://${escapeHTML(req.get("Host"))}/raw/${escapeHTML(encodeURIComponent(req.params.name))}">
+<meta name="twitter:card" content="${embed.video ? "player" : "summary_large_image"}">
 <meta property="og:description" content="${embed.description ? escapeHTML(embed.description) : `Uploaded at ${embed.uploadedAt}`}">
 </head>
 <body>
