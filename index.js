@@ -354,8 +354,8 @@ app.get("/shorten", async (req, res) => {
 app.get("/delete/:key/:name", async (req, res) => {
   try {
     const hash = deletionHashes.get(req.params.name);
-    if (!hash) return res.status(404).json({success: false, message: "File does not exist"});
-    if (!await argon2.verify(hash, req.params.key)) return res.status(401).json({success: false, message: "Invalid deletion key!"});
+    if (!hash) return res.status(404).json({success: false, error: "File does not exist"});
+    if (!await argon2.verify(hash, req.params.key)) return res.status(401).json({success: false, error: "Invalid deletion key!"});
     try {
       await deleteFile(req.params.name);
       res.redirect("/deleted");
@@ -371,8 +371,8 @@ app.get("/delete/:key/:name", async (req, res) => {
 
 app.get("/delete-short/:key/:name", async (req, res) => {
   const hash = shortDeletionHashes.get(req.params.name);
-  if (!hash) return res.status(404).json({success: false, message: "Shortened URL does not exist"});
-  if (!await argon2.verify(hash, req.params.key)) return res.status(401).json({success: false, message: "Invalid deletion key!"});
+  if (!hash) return res.status(404).json({success: false, error: "Shortened URL does not exist"});
+  if (!await argon2.verify(hash, req.params.key)) return res.status(401).json({success: false, error: "Invalid deletion key!"});
   shortDeletionHashes.delete(req.params.name);
   shortUrls.delete(req.params.name);
   res.redirect("/deleted-short");
