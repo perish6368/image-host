@@ -12,6 +12,7 @@ const config = require("./config");
 const {escape: escapeHTML} = require("html-escaper");
 const chokidar = require("chokidar");
 const providers = require("./http-providers");
+const nUtil = require("util");
 
 let apiKeys = [];
 const updateKeys = () => {
@@ -54,28 +55,31 @@ const {deleteFile} = require("./funcs");
 const oauth = config.oauth ? require("./oauth") : null;
 const cloudflare = config.cloudflare ? require("./cloudflare") : null;
 
-const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-"; // This has to be 64 characters long.
-const cryptoRandomStr = size => {
+const base64Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-";
+const promRandomInt = nUtil.promisify(crypto.randomInt);
+const promRandomBytes = nUtil.promisify(crypto.randomBytes);
+const cryptoRandomStr = async (size, characters = base64Chars) => {
   let res = "";
-  for (const byte of crypto.randomBytes(size)) {
-    res += characters[Math.floor(byte / 4)];
+  for (const _ of Array(size)) {
+    res += characters[await promRandomInt(0, characters.length)];
   }
   return res;
 };
-const recursiveFindFile = (size = 14, extension, depth = 0) => {
-  const possibleName = cryptoRandomStr(size);
-  return new Promise((resolve, reject) => {
-    if (depth >= 16) return resolve({
-      success: false,
-      error: "Tried too many names - try increasing your name length."
-    });
-    fs.access(`images/${possibleName}.${extension}`, err => {
-      if (err) resolve({
-        success: true,
-        name: `${possibleName}.${extension}`
-      }); else recursiveFindFile(size, extension, depth + 1).then(resolve).catch(reject);
-    });
-  });
+const recursiveFindFile = async (size = 14, extension, depth = 0) => {
+  const possibleName = await cryptoRandomStr(size);
+  if (depth >= 16) return {
+    success: false,
+    error: "Tried too many names - try increasing your name length."
+  };
+  try {
+    await fs.promises.access(`images/${possibleName}.${extension}`);
+    return await recursiveFindFile(size, extension, depth + 1);
+  } catch (e) {
+    return {
+      success: true,
+      name: `${possibleName}.${extension}`
+    };
+  }
 };
 
 const app = express();
@@ -238,7 +242,7 @@ app.post("/upload", (req, res, next) => {
   if (doEncryption) {
     const keyLength = ~~req.query.keyLength || (req.query.encryptionKey || {}).length || 0;
     if (keyLength > config.uploading.keyLengthLimit) return res.status(400).json({success: false, error: "Encryption key too large"});
-    const encryptionKey = Buffer.from(req.query.encryptionKey || cryptoRandomStr(~~req.query.keyLength || 16));
+    const encryptionKey = Buffer.from(req.query.encryptionKey || await cryptoRandomStr(~~req.query.keyLength || 16));
     const aesCtr = new aes.ModeOfOperation.ctr(crypto.createHash("sha256").update(encryptionKey).digest());
     fs.writeFile(`images/${name}`, Buffer.from(aesCtr.encrypt(req.file.buffer)), async err => {
       if (err) {
@@ -250,7 +254,7 @@ app.post("/upload", (req, res, next) => {
           const encKeyStr = encryptionKey.toString();
           const hash = await argon2.hash(encKeyStr);
           encryptionHashes.set(name, {hash, legacy: false});
-          const deletionKey = crypto.randomBytes(64).toString("hex");
+          const deletionKey = (await promRandomBytes(64)).toString("hex");
           deletionHashes.set(name, await argon2.hash(deletionKey));
           console.log(`API key ${key} uploaded file ${name}`);
           let json = {
@@ -281,7 +285,7 @@ app.post("/upload", (req, res, next) => {
       }
       else {
         try {
-          const deletionKey = crypto.randomBytes(64).toString("hex");
+          const deletionKey = (await promRandomBytes(64)).toString("hex");
           deletionHashes.set(name, await argon2.hash(deletionKey));
           console.log(`API key ${key} uploaded file ${name}`);
           let json = {success: true, name, deletionKey};
@@ -302,6 +306,7 @@ app.post("/upload", (req, res, next) => {
   }
 });
 
+const ZW_BASE = ["\u200C", "\u200D", "\u200E"];
 app.get("/shorten", async (req, res) => {
   const url = req.query.url;
   let urlObj;
@@ -314,12 +319,9 @@ app.get("/shorten", async (req, res) => {
   const cooldownAt = shortCooldowns.get(key) || 0;
   if (cooldownAt > Date.now()) return res.status(429).json({success: false, error: `Ratelimited - wait ${cooldownAt - Date.now()}ms`});
   shortCooldowns.set(key, Date.now() + 2500);
-  const deletionKey = crypto.randomBytes(64).toString("hex");
+  const deletionKey = (await promRandomBytes(64)).toString("hex");
   const doZW = req.query.mode === "zw";
-  const name = doZW ? parseInt(crypto.randomBytes(6).toString("hex"), 16).toString(3)
-      .split("0").join("\u200C")
-      .split("1").join("\u200D")
-      .split("2").join("\u200E") : await cryptoRandomStr(7);
+  const name = doZW ? await cryptoRandomStr(31, ZW_BASE) : await cryptoRandomStr(8);
   shortDeletionHashes.set(name, await argon2.hash(deletionKey));
   const randomChoices = (req.query.random || "").split(",");
   const randomChoice = randomChoices[~~(randomChoices.length * Math.random())];
