@@ -15,10 +15,10 @@
           <p v-if="showLink || embed || spoilerGlitch"><a href="#" class="discord-link" title="Example Link">{{normalLink}}</a></p> <!-- Link -->
 
           <div v-if="embed" class="border-l-4 p-2 bg-discord-embed-bg" :style="{borderColor: embedDisplayColor}">
-            <p v-if="embedHeader" class="text-md discord-muted">{{replaceDate(embedHeader)}}</p>
-            <p v-if="embedAuthor" class="text-lg font-bold">{{replaceDate(embedAuthor)}}</p>
-            <p class="text-xl"><a href="#" class="discord-link" title="Example Link">{{replaceDate(embedText) || config.name}}</a></p> <!-- Embed Title -->
-            <p class="text-lg">{{ replaceDate(embedDescription || "Uploaded at [UPLOAD_TIME]") }}</p> <!-- Embed Description -->
+            <p v-if="embedHeader" class="text-md discord-muted">{{replaceVariables(embedHeader)}}</p>
+            <p v-if="embedAuthor" class="text-lg font-bold">{{replaceVariables(embedAuthor)}}</p>
+            <p class="text-xl"><a href="#" class="discord-link" title="Example Link">{{replaceVariables(embedText) || config.name}}</a></p> <!-- Embed Title -->
+            <p class="text-lg">{{replaceVariables(embedDescription || "Uploaded at [UPLOAD_TIME]")}}</p> <!-- Embed Description -->
             <div class="h-32"> <!-- Embed Image -->
               <img :src="faviconURL" alt="Example Image">
             </div>
@@ -36,6 +36,13 @@
 import avatarURL from "./avatar.png";
 import faviconURL from "../favicon.webp";
 import config from "./config";
+
+function replaceVariables(str, context) {
+  return str.replace(/\[([A-Za-z0-9_\-]+)\]/g, (match, p1) => {
+    if (!context.has(p1.toUpperCase())) return match;
+    return context.get(p1.toUpperCase());
+  });
+}
 
 const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 function genRandom(i) {
@@ -80,12 +87,16 @@ export default {
   computed: {
     normalLink() {
       const genRandomEnc = Number.isNaN(parseInt(this.encKey)) ? (this.encKey ? 0 : 16) : parseInt(this.encKey);
-      const fileName = `${this.encryption ? `${genRandom(genRandomEnc) || this.encKey}/` : ""}${genRandom(+this.nameLength || 14)}.png`;
+      const fileName = `${this.encryption ? `${genRandom(genRandomEnc) || this.encKey}/` : ""}${this.filename}.png`;
 
       if (this.spoilerGlitch)
         return `${location.protocol}//${this.domains[0].value}/${this.spoilerShowFilename ? fileName : ""}`
 
       return `${location.protocol}//${this.domains[0].value}/${fileName}${this.compatSLoD ? "# " : ""}`;
+    },
+
+    filename() {
+      return genRandom(+this.nameLength || 14);
     },
 
     embedDisplayColor() {
@@ -98,8 +109,15 @@ export default {
   },
 
   methods: {
-    replaceDate(s) {
-      return s.replace(/\[UPLOAD_TIME\]/g, `12:00 AM ${this.embedDate}`);
+    replaceVariables(s) {
+      const context = new Map();
+      context.set("UPLOAD_DATE", this.embedDate);
+      context.set("UPLOAD_EXTENSION", "png");
+      context.set("UPLOAD_NAME", this.filename);
+      context.set("UPLOAD_SIZE", "133.7 KB");
+      context.set("UPLOAD_TIME", "12:00 AM");
+
+      return replaceVariables(s, context);
     }
   }
 };

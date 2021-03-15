@@ -13,6 +13,8 @@ const {escape: escapeHTML} = require("html-escaper");
 const chokidar = require("chokidar");
 const providers = require("./http-providers");
 const nUtil = require("util");
+const filesize = require("filesize").partial({base: 10, round: 1}); // meGAbytes, not meBIbytes
+
 
 let apiKeys = [];
 const updateKeys = () => {
@@ -115,6 +117,13 @@ if (cloudflare !== null) {
 
 app.use(express.static("web"));
 
+function replaceVariables(str, context) {
+  return str.replace(/\[([A-Za-z0-9_\-]+)\]/g, (match, p1) => {
+    if (!context.has(p1.toUpperCase())) return match;
+    return context.get(p1.toUpperCase());
+  });
+}
+
 const FILE_SIZE_LIMIT = config.uploading.sizeLimit;
 const multipartMiddleware = multer({
   limits: {
@@ -180,20 +189,30 @@ app.post("/upload", (req, res, next) => {
       video: req.file.mimetype.startsWith("video/")
     };
 
-    const timeFormat = req.query.embedMDY === "yes" ? "h:mm A M/D/y" : "h:mm A D/M/y";
+    const dateFormat = req.query.embedMDY === "yes" ? "M/D/y" : "D/M/y";
 
+    let now = moment();
     if (req.query.embedTimezone) {
       const offset = parseInt(req.query.embedTimezone);
       if (!Number.isInteger(offset) || offset < -23 || offset > 23) return res.status(400).json({
         success: false,
         error: "Invalid timezone offset!"
       });
-      embed.uploadedAt = moment().add(offset, "hours").format(timeFormat);
-    } else embed.uploadedAt = moment().format(timeFormat);
+      now = now.add(offset, "hours");
+    }
+    embed.uploadedAt = now.format(`h:mm A ${dateFormat}`);
+
+    const context = new Map();
+    context.set("UPLOAD_TIME", now.format("h:mm A"));
+    context.set("UPLOAD_DATE", now.format(dateFormat));
+    const extension = path.extname(name);
+    context.set("UPLOAD_EXTENSION", extension.slice(1))
+    context.set("UPLOAD_NAME", path.basename(name, extension));
+    context.set("UPLOAD_SIZE", filesize(req.file.buffer.length).toUpperCase());
 
     if (req.query.embedText) {
       if (req.query.embedText.length > 480) return res.status(400).json({success: false, error: "Embed text too long!"});
-      embed.text = req.query.embedText.replace(/\[UPLOAD_TIME\]/g, embed.uploadedAt);
+      embed.text = replaceVariables(req.query.embedText, context);
     }
 
     if (req.query.embedColor === "RANDOM") embed.color = ~~(Math.random() * 0x1000000);
@@ -212,15 +231,15 @@ app.post("/upload", (req, res, next) => {
 
     if (req.query.embedDescription) {
       if (req.query.embedDescription.length > 480) return res.status(400).json({success: false, error: "Embed description too long!"});
-      embed.description = req.query.embedDescription.replace(/\[UPLOAD_TIME\]/g, embed.uploadedAt);
+      embed.description = replaceVariables(req.query.embedDescription, context);
     }
     if (req.query.embedHeader) {
       if (req.query.embedHeader.length > 480) return res.status(400).json({success: false, error: "Embed header too long!"});
-      embed.header = req.query.embedHeader.replace(/\[UPLOAD_TIME\]/g, embed.uploadedAt);
+      embed.header = replaceVariables(req.query.embedHeader, context);
     }
     if (req.query.embedAuthor) {
       if (req.query.embedAuthor.length > 480) return res.status(400).json({success: false, error: "Embed author too long!"});
-      embed.author = req.query.embedAuthor.replace(/\[UPLOAD_TIME\]/g, embed.uploadedAt);
+      embed.author = replaceVariables(req.query.embedAuthor, context);
     }
   }
 
