@@ -1,7 +1,7 @@
 const config = require("./config");
 const request = require("superagent");
 
-let cached = null;
+const zoneIDs = new Map();
 let domains = [];
 let keys = [];
 let ratelimits = new Map();
@@ -27,19 +27,17 @@ async function setSubdomain(subdomain, key) {
     }
     ratelimits.set(key, Date.now() + config.cloudflare.ratelimit);
 
-    if (cached === null) {
-        const res = await request("https://api.cloudflare.com/client/v4/zones")
+    if (!zoneIDs.has(zoneName)) {
+        zoneIDs.set(zoneName, request("https://api.cloudflare.com/client/v4/zones")
             .set("X-Auth-Key", config.cloudflare.key)
-            .set("X-Auth-Email", config.cloudflare.email);
-        cached = res.body.result;
+            .set("X-Auth-Email", config.cloudflare.email)
+            .query({
+                name: zoneName
+            }).then(res => res.body.result[0].id));
     }
+    const zoneID = await zoneIDs.get(zoneName);
 
-    const zone = cached.find(z => z.name === zoneName);
-    if (!zone) {
-        throw new Error(`Domain ${zoneName} not found`);
-    }
-
-    await request.post(`https://api.cloudflare.com/client/v4/zones/${zone.id}/dns_records`)
+    await request.post(`https://api.cloudflare.com/client/v4/zones/${zoneID}/dns_records`)
         .set("X-Auth-Key", config.cloudflare.key)
         .set("X-Auth-Email", config.cloudflare.email)
         .send({
@@ -69,7 +67,6 @@ function handle(app) {
 }
 
 function updateDomains(newDomains) {
-    cached = null;
     domains = newDomains;
 }
 
