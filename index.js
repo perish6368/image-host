@@ -20,7 +20,7 @@ let apiKeys = [];
 const updateKeys = () => {
   fs.readFile("keys.txt", (err, buf) => {
     if (err) return console.error(err);
-    const keys = buf.toString().split("\n").map(keyWithComment => keyWithComment.split("#")[0].trim());
+    const keys = buf.toString().split(/[\n\r]+/g).map(keyWithComment => keyWithComment.split("#")[0].trim());
     apiKeys = keys;
     if (oauth) oauth.updateKeys(keys);
     if (cloudflare) cloudflare.updateKeys(keys);
@@ -37,7 +37,7 @@ let domains = [];
 const updateDomains = () => {
   fs.readFile("domains.txt", (err, buf) => {
     if (err) return console.error(err);
-    domains = buf.toString().split("\n").map(d => d.trim()).filter(d => d);
+    domains = buf.toString().split(/[\n\r]+/g).map(d => d.trim()).filter(d => d);
     if (cloudflare) cloudflare.updateDomains(domains);
   });
 };
