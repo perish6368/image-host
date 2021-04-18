@@ -125,7 +125,14 @@ module.exports = (env, argv) => ({
                 referrer: "no-referrer",
                 keywords: "sharex, image host, dapper, uploader, files, sxcu, pomf",
                 author: require("./package.json").author,
-                viewport: "width=device-width, initial-scale=1.0"
+                viewport: "width=device-width, initial-scale=1, shrink-to-fit=no",
+                "theme-color": {
+                    property: "theme-color",
+                    content: "#C00C0C"
+                },
+                charset: {
+                    charset: "UTF-8"
+                }
             },
             hash: false,
             minify: argv.mode === "production" ? {
@@ -137,7 +144,10 @@ module.exports = (env, argv) => ({
                 removeStyleLinkTypeAttributes: true,
                 collapseWhitespace: true,
                 conservativeCollapse: true
-            } : false
+            } : false,
+            templateParameters: {
+                titlePrefix: "DIH &bull;"
+            }
         }, favicon === null ? {} : {favicon}))
     ).concat([
         new VueLoaderPlugin()
