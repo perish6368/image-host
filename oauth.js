@@ -19,7 +19,10 @@ passport.use(new DiscordStrategy({
 }, function(req, accessToken, refreshToken, profile, cb) {
   if (!keys.includes(req.query.state)) return cb("Invalid key!");
   if (refreshTokens.get(req.query.state)) return cb("You're already registered!");
-  refreshTokens.set(req.query.state, refreshToken);
+  refreshTokens.set(req.query.state, {
+    refresh: refreshToken,
+    id: profile.id
+  });
   cb(null, profile);
 }));
 passport.serializeUser(function(user, done) {
