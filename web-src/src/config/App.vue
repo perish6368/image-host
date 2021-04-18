@@ -143,7 +143,7 @@ export default {
   components: {Preview},
 
   data: () => ({
-    apiKey: "",
+    apiKey: localStorage.apiKey || "",
     domains: [{
       value: location.host,
       required: true
@@ -258,6 +258,7 @@ export default {
       this.domains = domainsMapped;
     },
     downloadClick() {
+      localStorage.apiKey = this.apiKey;
       download(JSON.stringify(this.config), `${config.name}.sxcu`);
     },
     removeDomainClick(e) {

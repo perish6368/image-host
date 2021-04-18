@@ -25,18 +25,26 @@ if (normalizedPath === "/domains") {
 }
 
 if (normalizedPath === "/login") {
-    document.getElementById("key-input").addEventListener("keydown", function(e) {
+    const keyInput = document.getElementById("key-input");
+    if (localStorage.apiKey) keyInput.value = localStorage.apiKey;
+    keyInput.addEventListener("keydown", function(e) {
         if ((e.key || e.code) === "Enter" || (e.keyCode || e.which) === 13) {
-            location.href = "/login/" + e.currentTarget.value.split("/").join("");
+            const key = e.currentTarget.value.split("/").join("");
+            localStorage.apiKey = key;
+            location.href = "/login/" + key;
         }
     });
 }
 
 if (normalizedPath === "/subdomain/ui") {
+    const keyInput = document.getElementById("subdomain-key-input");
+    if (localStorage.apiKey) keyInput.value = localStorage.apiKey;
     document.getElementById("subdomain-add-button").addEventListener("click", function() {
+        const key = document.getElementById("subdomain-key-input").value;
+        localStorage.apiKey = key;
         location.href = "/subdomain/add?" + new URLSearchParams({
             subdomain: document.getElementById("subdomain-input").value,
-            key: document.getElementById("subdomain-key-input").value
+            key
         });
     });
 }
